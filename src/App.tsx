@@ -4,8 +4,10 @@ import { Sidebar } from './components/Sidebar';
 import { MacroView } from './components/MacroView';
 import { MicroView } from './components/MicroView';
 import { TeamView } from './components/TeamView';
-import { mockActivities, calculateStats, getYears } from './data/mockData';
+import { useActivities } from './hooks/useActivities';
+import { calculateStats, getYears } from './data/mockData';
 import type { DashboardFilters } from './types/activity';
+import { RefreshCw, AlertCircle, Database, Cloud } from 'lucide-react';
 
 type ViewType = 'macro' | 'micro' | 'team';
 
@@ -16,7 +18,7 @@ function App() {
   const [activeView, setActiveView] = useState<ViewType>('macro');
   const [selectedMunicipio, setSelectedMunicipio] = useState<string | null>(null);
   const [filters, setFilters] = useState<DashboardFilters>({
-    ano: 2025,
+    ano: 2026,
     mes: null,
     municipio: null,
     responsavel: null,
@@ -24,13 +26,23 @@ function App() {
     incluirConcluidas: true,
   });
 
+  // Buscar atividades da API (com fallback para mock)
+  const { activities, isLoading, error, isUsingMockData, refetch } = useActivities();
+
   // Obter anos disponíveis
-  const years = useMemo(() => getYears(mockActivities), []);
+  const years = useMemo(() => getYears(activities), [activities]);
+
+  // Ajustar ano inicial quando os dados carregarem
+  useMemo(() => {
+    if (years.length > 0 && !years.includes(filters.ano)) {
+      setFilters(prev => ({ ...prev, ano: years[0] }));
+    }
+  }, [years, filters.ano]);
 
   // Calcular estatísticas com base nos filtros
   const stats = useMemo(
-    () => calculateStats(mockActivities, filters),
-    [filters]
+    () => calculateStats(activities, filters),
+    [activities, filters]
   );
 
   // Handler para clicar em um município
@@ -76,6 +88,18 @@ function App() {
 
   const pageInfo = getPageInfo();
 
+  if (isLoading) {
+    return (
+      <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <RefreshCw size={48} className="pulse" style={{ color: 'var(--primary-500)', marginBottom: '1rem' }} />
+          <h2 style={{ color: 'var(--text-primary)' }}>Carregando dados...</h2>
+          <p style={{ color: 'var(--text-muted)' }}>Conectando ao SharePoint</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <Sidebar
@@ -93,7 +117,76 @@ function App() {
             <h1 className="page-title">{pageInfo.title}</h1>
             <p className="page-subtitle">{pageInfo.subtitle}</p>
           </div>
+
+          {/* Indicador de fonte de dados */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                background: isUsingMockData ? 'rgba(234, 179, 8, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                border: `1px solid ${isUsingMockData ? 'rgba(234, 179, 8, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`,
+                borderRadius: '8px',
+                fontSize: '0.8rem'
+              }}
+            >
+              {isUsingMockData ? (
+                <>
+                  <Database size={16} style={{ color: 'var(--warning)' }} />
+                  <span style={{ color: 'var(--warning)' }}>Dados de exemplo</span>
+                </>
+              ) : (
+                <>
+                  <Cloud size={16} style={{ color: 'var(--success)' }} />
+                  <span style={{ color: 'var(--success)' }}>SharePoint conectado</span>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={refetch}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontSize: '0.8rem'
+              }}
+            >
+              <RefreshCw size={14} />
+              Atualizar
+            </button>
+          </div>
         </header>
+
+        {/* Mensagem de erro se houver */}
+        {error && isUsingMockData && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '1rem',
+            background: 'rgba(234, 179, 8, 0.1)',
+            border: '1px solid rgba(234, 179, 8, 0.3)',
+            borderRadius: '12px',
+            marginBottom: '1.5rem'
+          }}>
+            <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
+            <div>
+              <strong style={{ color: 'var(--warning)' }}>Usando dados de exemplo</strong>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.25rem 0 0' }}>
+                Não foi possível conectar ao SharePoint. Verifique as variáveis de ambiente na Vercel.
+              </p>
+            </div>
+          </div>
+        )}
 
         {activeView === 'macro' && (
           <MacroView
@@ -106,7 +199,7 @@ function App() {
         {activeView === 'micro' && selectedMunicipio && (
           <MicroView
             municipio={selectedMunicipio}
-            activities={mockActivities.filter(a =>
+            activities={activities.filter(a =>
               a.ano === filters.ano &&
               (filters.mes === null || a.mes === filters.mes)
             )}
