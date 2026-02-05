@@ -1,6 +1,6 @@
-import { ChevronRight, Home, FileText } from 'lucide-react';
+import { ChevronRight, Home, FileText, CheckCircle2, Clock } from 'lucide-react';
 import type { Activity } from '../types/activity';
-import { CHART_COLORS } from '../types/activity';
+import { CHART_COLORS, PRIORIDADE_COLORS } from '../types/activity';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface MicroViewProps {
@@ -10,8 +10,8 @@ interface MicroViewProps {
 }
 
 export function MicroView({ municipio, activities, onBack }: MicroViewProps) {
-    // Filtrar atividades do município
-    const municipioActivities = activities.filter(a => a.municipio === municipio);
+    // Filtrar atividades do município (excluindo canceladas)
+    const municipioActivities = activities.filter(a => a.municipio === municipio && !a.cancelada);
 
     // Calcular estatísticas por tipo
     const porTipo: Record<string, number> = {};
@@ -28,14 +28,24 @@ export function MicroView({ municipio, activities, onBack }: MicroViewProps) {
         .sort((a, b) => b.value - a.value);
 
     // Agrupar por responsável
-    const porResponsavel: Record<string, number> = {};
+    const porResponsavel: Record<string, { total: number; concluidas: number }> = {};
     municipioActivities.forEach(a => {
-        porResponsavel[a.responsavel] = (porResponsavel[a.responsavel] || 0) + 1;
+        a.responsaveis.forEach(resp => {
+            if (!porResponsavel[resp]) {
+                porResponsavel[resp] = { total: 0, concluidas: 0 };
+            }
+            porResponsavel[resp].total++;
+            if (a.concluida) porResponsavel[resp].concluidas++;
+        });
     });
 
     const responsavelData = Object.entries(porResponsavel)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.total - a.total);
+
+    // Contadores
+    const concluidas = municipioActivities.filter(a => a.concluida).length;
+    const pendentes = municipioActivities.filter(a => !a.concluida).length;
 
     return (
         <div className="fade-in">
@@ -62,19 +72,19 @@ export function MicroView({ municipio, activities, onBack }: MicroViewProps) {
                 </div>
 
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #a855f7)' }}>
-                        <FileText size={24} />
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
+                        <CheckCircle2 size={24} />
                     </div>
-                    <div className="stat-value">{Object.keys(porTipo).length}</div>
-                    <div className="stat-label">Tipos de Demanda</div>
+                    <div className="stat-value">{concluidas}</div>
+                    <div className="stat-label">Concluídas</div>
                 </div>
 
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #06b6d4, #0ea5e9)' }}>
-                        <FileText size={24} />
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                        <Clock size={24} />
                     </div>
-                    <div className="stat-value">{Object.keys(porResponsavel).length}</div>
-                    <div className="stat-label">Responsáveis Ativos</div>
+                    <div className="stat-value">{pendentes}</div>
+                    <div className="stat-label">Pendentes</div>
                 </div>
             </div>
 
@@ -140,8 +150,8 @@ export function MicroView({ municipio, activities, onBack }: MicroViewProps) {
 
                     <div className="bar-chart-container" style={{ maxHeight: '300px' }}>
                         {responsavelData.map((item, index) => {
-                            const maxValue = responsavelData[0]?.value || 1;
-                            const percentage = (item.value / maxValue) * 100;
+                            const maxValue = responsavelData[0]?.total || 1;
+                            const percentage = (item.total / maxValue) * 100;
 
                             return (
                                 <div key={item.name} className="bar-item">
@@ -155,13 +165,13 @@ export function MicroView({ municipio, activities, onBack }: MicroViewProps) {
                                             }}
                                         >
                                             {percentage > 20 && (
-                                                <span className="bar-value">{item.value}</span>
+                                                <span className="bar-value">{item.total}</span>
                                             )}
                                         </div>
                                     </div>
                                     {percentage <= 20 && (
                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', minWidth: '30px' }}>
-                                            {item.value}
+                                            {item.total}
                                         </span>
                                     )}
                                 </div>
@@ -183,26 +193,35 @@ export function MicroView({ municipio, activities, onBack }: MicroViewProps) {
                         <table className="data-table">
                             <thead>
                                 <tr>
-                                    <th>Responsável</th>
-                                    <th>Tipo de Demanda</th>
                                     <th>Nome da Demanda</th>
-                                    <th>Data</th>
-                                    <th>Resposta</th>
+                                    <th>Tipo</th>
+                                    <th>Responsável</th>
+                                    <th>Prioridade</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {municipioActivities.slice(0, 15).map((activity) => (
                                     <tr key={activity.id}>
-                                        <td>{activity.responsavel}</td>
+                                        <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {activity.nomeDemanda}
+                                        </td>
                                         <td>{activity.tipoDemanda}</td>
-                                        <td>{activity.nomeDemanda}</td>
-                                        <td>{new Date(activity.data).toLocaleDateString('pt-BR')}</td>
+                                        <td>{activity.responsaveis.join(', ')}</td>
                                         <td>
                                             <span style={{
-                                                color: activity.respostaContato === 'Sim' ? 'var(--success)' : 'var(--info)',
+                                                color: PRIORIDADE_COLORS[activity.prioridade] || 'var(--text-secondary)',
                                                 fontWeight: 500
                                             }}>
-                                                {activity.respostaContato}
+                                                {activity.prioridade}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style={{
+                                                color: activity.concluida ? 'var(--success)' : 'var(--warning)',
+                                                fontWeight: 500
+                                            }}>
+                                                {activity.concluida ? 'Concluída' : 'Pendente'}
                                             </span>
                                         </td>
                                     </tr>

@@ -2,5 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "framework": "vite"
+  "framework": "vite",
+  "env": {
+    "AZURE_TENANT_ID": "@azure-tenant-id",
+    "AZURE_CLIENT_ID": "@azure-client-id",
+    "AZURE_CLIENT_SECRET": "@azure-client-secret"
+  }
 }

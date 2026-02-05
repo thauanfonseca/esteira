@@ -1,4 +1,4 @@
-import { Building2, Users, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { Building2, FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import type { DashboardStats } from '../types/activity';
 import { CHART_COLORS } from '../types/activity';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -18,11 +18,12 @@ export function MacroView({ stats, onMunicipioClick, alertThreshold }: MacroView
         color: CHART_COLORS[index % CHART_COLORS.length],
     }));
 
-    // Dados para o gráfico de respostas
-    const respostaData = [
-        { name: 'Sim', value: stats.respostaSim, color: '#22c55e' },
-        { name: 'Não', value: stats.respostaNao, color: '#3b82f6' },
-    ];
+    // Dados para o gráfico de status
+    const statusData = [
+        { name: 'Concluídas', value: stats.concluidas, color: '#22c55e' },
+        { name: 'Pendentes', value: stats.pendentes, color: '#f59e0b' },
+        { name: 'Canceladas', value: stats.canceladas, color: '#ef4444' },
+    ].filter(d => d.value > 0);
 
     return (
         <div className="fade-in">
@@ -40,7 +41,26 @@ export function MacroView({ stats, onMunicipioClick, alertThreshold }: MacroView
                         <FileText size={24} />
                     </div>
                     <div className="stat-value">{stats.totalAtividades.toLocaleString('pt-BR')}</div>
-                    <div className="stat-label">Atividades</div>
+                    <div className="stat-label">Total Atividades</div>
+                </div>
+
+                <div className="stat-card">
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
+                        <CheckCircle2 size={24} />
+                    </div>
+                    <div className="stat-value">{stats.concluidas.toLocaleString('pt-BR')}</div>
+                    <div className="stat-label">Concluídas</div>
+                    <div className="stat-change positive">
+                        {((stats.concluidas / stats.totalAtividades) * 100).toFixed(1)}%
+                    </div>
+                </div>
+
+                <div className="stat-card">
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                        <Clock size={24} />
+                    </div>
+                    <div className="stat-value">{stats.pendentes.toLocaleString('pt-BR')}</div>
+                    <div className="stat-label">Pendentes</div>
                 </div>
 
                 <div className="stat-card">
@@ -49,24 +69,6 @@ export function MacroView({ stats, onMunicipioClick, alertThreshold }: MacroView
                     </div>
                     <div className="stat-value">{stats.totalMunicipios}</div>
                     <div className="stat-label">Municípios</div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #06b6d4, #0ea5e9)' }}>
-                        <Users size={24} />
-                    </div>
-                    <div className="stat-value">{stats.totalResponsaveis}</div>
-                    <div className="stat-label">Responsáveis</div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
-                        <CheckCircle2 size={24} />
-                    </div>
-                    <div className="stat-value">
-                        {((stats.respostaSim / (stats.respostaSim + stats.respostaNao)) * 100).toFixed(1)}%
-                    </div>
-                    <div className="stat-label">Taxa de Resposta</div>
                 </div>
             </div>
 
@@ -130,12 +132,12 @@ export function MacroView({ stats, onMunicipioClick, alertThreshold }: MacroView
                     </div>
                 </div>
 
-                {/* Donut Chart - Resposta por Contato */}
+                {/* Donut Chart - Status */}
                 <div className="chart-card">
                     <div className="chart-header">
                         <div>
-                            <h3 className="chart-title">Resposta por Contato</h3>
-                            <p className="chart-subtitle">Percentual de respostas obtidas</p>
+                            <h3 className="chart-title">Status das Demandas</h3>
+                            <p className="chart-subtitle">Concluídas, pendentes e canceladas</p>
                         </div>
                     </div>
 
@@ -143,7 +145,7 @@ export function MacroView({ stats, onMunicipioClick, alertThreshold }: MacroView
                         <ResponsiveContainer width="50%" height="100%">
                             <PieChart>
                                 <Pie
-                                    data={respostaData}
+                                    data={statusData}
                                     cx="50%"
                                     cy="50%"
                                     innerRadius={50}
@@ -151,7 +153,7 @@ export function MacroView({ stats, onMunicipioClick, alertThreshold }: MacroView
                                     paddingAngle={3}
                                     dataKey="value"
                                 >
-                                    {respostaData.map((entry, index) => (
+                                    {statusData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.color} />
                                     ))}
                                 </Pie>
@@ -166,13 +168,11 @@ export function MacroView({ stats, onMunicipioClick, alertThreshold }: MacroView
                         </ResponsiveContainer>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {respostaData.map((item) => (
+                            {statusData.map((item) => (
                                 <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    {item.name === 'Sim' ? (
-                                        <CheckCircle2 size={20} color={item.color} />
-                                    ) : (
-                                        <XCircle size={20} color={item.color} />
-                                    )}
+                                    {item.name === 'Concluídas' && <CheckCircle2 size={20} color={item.color} />}
+                                    {item.name === 'Pendentes' && <Clock size={20} color={item.color} />}
+                                    {item.name === 'Canceladas' && <XCircle size={20} color={item.color} />}
                                     <div>
                                         <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>
                                             {item.value.toLocaleString('pt-BR')}

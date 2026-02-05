@@ -20,6 +20,8 @@ function App() {
     mes: null,
     municipio: null,
     responsavel: null,
+    incluirCanceladas: false,
+    incluirConcluidas: true,
   });
 
   // Obter anos disponíveis

@@ -1,4 +1,4 @@
-import { Users, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, CheckCircle2 } from 'lucide-react';
 import type { DashboardStats } from '../types/activity';
 import { CHART_COLORS } from '../types/activity';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -17,14 +17,20 @@ export function TeamView({ stats }: TeamViewProps) {
         }))
         .sort((a, b) => b.value - a.value);
 
+    // Dados para o donut chart de áreas
+    const areaData = Object.entries(stats.atividadesPorArea || {})
+        .map(([name, value], index) => ({
+            name: name || 'Não especificada',
+            value,
+            color: CHART_COLORS[(index + 5) % CHART_COLORS.length],
+        }))
+        .sort((a, b) => b.value - a.value);
+
     // Calcular média de atividades por responsável
     const mediaAtividades = stats.totalAtividades / stats.totalResponsaveis;
 
     // Identificar responsáveis com sobrecarga (acima de 1.5x a média)
     const sobrecarga = stats.atividadesPorResponsavel.filter(r => r.total > mediaAtividades * 1.5);
-
-    // Identificar responsáveis com pouca carga (abaixo de 0.5x a média)
-    const baixaCarga = stats.atividadesPorResponsavel.filter(r => r.total < mediaAtividades * 0.5);
 
     return (
         <div className="fade-in">
@@ -55,11 +61,13 @@ export function TeamView({ stats }: TeamViewProps) {
                 </div>
 
                 <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #eab308, #f59e0b)' }}>
-                        <AlertTriangle size={24} />
+                    <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
+                        <CheckCircle2 size={24} />
                     </div>
-                    <div className="stat-value">{baixaCarga.length}</div>
-                    <div className="stat-label">Baixa Carga</div>
+                    <div className="stat-value">
+                        {((stats.concluidas / stats.totalAtividades) * 100).toFixed(0)}%
+                    </div>
+                    <div className="stat-label">Taxa de Conclusão</div>
                 </div>
             </div>
 
@@ -84,7 +92,7 @@ export function TeamView({ stats }: TeamViewProps) {
                                     fontSize: '0.8rem'
                                 }}
                             >
-                                <strong>{r.responsavel}</strong> — {r.total} atividades
+                                <strong>{r.responsavel}</strong> — {r.total} atividades ({r.pendentes} pendentes)
                             </span>
                         ))}
                     </div>
@@ -142,34 +150,51 @@ export function TeamView({ stats }: TeamViewProps) {
                     </div>
                 </div>
 
-                {/* Contagem Total */}
+                {/* Donut Chart - Por Área */}
                 <div className="chart-card">
                     <div className="chart-header">
                         <div>
-                            <h3 className="chart-title">Contagem de ID</h3>
-                            <p className="chart-subtitle">Total de registros</p>
+                            <h3 className="chart-title">Distribuição por Área</h3>
+                            <p className="chart-subtitle">Jurídico, Administrativo, etc.</p>
                         </div>
                     </div>
 
-                    <div style={{
-                        height: 300,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <div style={{
-                            fontSize: '4rem',
-                            fontWeight: 700,
-                            background: 'linear-gradient(135deg, var(--primary-400), var(--primary-600))',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text'
-                        }}>
-                            {stats.totalAtividades.toLocaleString('pt-BR')}
-                        </div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>
-                            Contagem de ID
+                    <div style={{ height: 300, display: 'flex', alignItems: 'center' }}>
+                        <ResponsiveContainer width="50%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={areaData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={50}
+                                    outerRadius={90}
+                                    paddingAngle={2}
+                                    dataKey="value"
+                                >
+                                    {areaData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip
+                                    contentStyle={{
+                                        background: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px'
+                                    }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+
+                        <div style={{ width: '50%', maxHeight: '280px', overflowY: 'auto' }}>
+                            {areaData.map((item) => (
+                                <div key={item.name} className="legend-item" style={{ marginBottom: '0.5rem' }}>
+                                    <div className="legend-color" style={{ background: item.color }} />
+                                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {item.name}
+                                    </span>
+                                    <span style={{ fontWeight: 600, marginLeft: '0.5rem' }}>{item.value}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
